@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}水质证{% endblock %}
+{% block content %}
+<div x-data="waterPage({{ certs | tojson }}, {{ workshops | tojson }}, {{ form | tojson }})">
+  {% if error %}
+  <div class="error-box">{{ error }}</div>
+  {% endif %}
+
+  <div class="panel-grid">
+    <section class="panel">
+      <h2>新建水质证</h2>
+      <p class="hint">染缸工可登记；同坊同日至多一张，硬度 0–350。两人同时交同坊同日证时，仅一笔入库，另一笔被拒。</p>
+      <form method="post" action="/water-certs">
+        <label>工坊
+          <select name="workshop_id" required>
+            {% for w in workshops %}
+            <option value="{{ w.id }}" {% if form.workshop_id|string == w.id|string %}selected{% endif %}>{{ w.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>取样日
+          <input type="date" name="sampled_on" required max="{{ today }}"
+                 value="{{ form.sampled_on or today }}">
+        </label>
+        <label>硬度值（0–350）
+          <input type="number" name="hardness" required min="0" max="350" step="0.01"
+                 value="{{ form.hardness or '' }}" placeholder="例如 168">
+        </label>
+        <label>是否合格
+          <select name="passed">
+            <option value="1" {% if form.passed|string == '1' %}selected{% endif %}>合格</option>
+            <option value="0" {% if form.passed|string == '0' %}selected{% endif %}>不合格</option>
+          </select>
+        </label>
+        <label>化验人
+          <input type="text" name="chemist" required maxlength="80"
+                 value="{{ form.chemist or user.username }}" placeholder="化验人姓名">
+        </label>
+        <button type="submit">提交水质证</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>编辑水质证</h2>
+      <p class="hint" x-show="!editId" x-cloak>点右侧列表的「编辑」载入；校验与新建完全相同。</p>
+      <div x-show="editId" x-cloak>
+        <form method="post" :action="'/water-certs/' + editId + '/update'">
+          <label>工坊
+            <select name="workshop_id" required x-model="editForm.workshop_id">
+              <template x-for="w in allWorkshops" :key="w.id">
+                <option :value="w.id" x-text="w.name"></option>
+              </template>
+            </select>
+          </label>
+          <label>取样日
+            <input type="date" name="sampled_on" required :max="'{{ today }}'" x-model="editForm.sampled_on">
+          </label>
+          <label>硬度值（0–350）
+            <input type="number" name="hardness" required min="0" max="350" step="0.01" x-model="editForm.hardness">
+          </label>
+          <label>是否合格
+            <select name="passed" x-model="editForm.passed">
+              <option value="1">合格</option>
+              <option value="0">不合格</option>
+            </select>
+          </label>
+          <label>化验人
+            <input type="text" name="chemist" required maxlength="80" x-model="editForm.chemist">
+          </label>
+          <button type="submit">保存修改</button>
+          <button type="button" class="ghost-btn" @click="editId = null"
+                  style="margin-left:0.5rem;background:#fff;color:#1f4d6b;border:1px solid #b7cdd0">取消</button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:1.25rem">
+    <h2>水质证台账</h2>
+    <p class="hint">
+      仅<strong>合格</strong>、<strong>未作废</strong>且取样日在<strong>最近 {{ valid_days }} 个自然日</strong>内的证标记为有效；
+      作废立即失效。各坊「最新有效」即还原台放行依据，两处同源。
+    </p>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.9rem;min-width:760px">
+        <thead>
+          <tr style="text-align:left;color:#1f4d6b;border-bottom:2px solid #b7cdd0">
+            <th style="padding:0.45rem 0.6rem">工坊</th>
+            <th style="padding:0.45rem 0.6rem">取样日</th>
+            <th style="padding:0.45rem 0.6rem">硬度值</th>
+            <th style="padding:0.45rem 0.6rem">是否合格</th>
+            <th style="padding:0.45rem 0.6rem">化验人</th>
+            <th style="padding:0.45rem 0.6rem">当前结论</th>
+            <th style="padding:0.45rem 0.6rem">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="c in certs" :key="c.id">
+            <tr style="border-bottom:1px dashed #c5d8d6">
+              <td style="padding:0.45rem 0.6rem" x-text="c.workshopName"></td>
+              <td style="padding:0.45rem 0.6rem;font-variant-numeric:tabular-nums" x-text="c.sampledOn"></td>
+              <td style="padding:0.45rem 0.6rem;font-variant-numeric:tabular-nums" x-text="c.hardness"></td>
+              <td style="padding:0.45rem 0.6rem">
+                <span x-text="c.passed ? '合格' : '不合格'"></span>
+                <span class="cert-badge tag" x-show="c.isLatestValid" x-cloak>最新有效</span>
+              </td>
+              <td style="padding:0.45rem 0.6rem" x-text="c.chemist"></td>
+              <td style="padding:0.45rem 0.6rem">
+                <span class="cert-badge ok" x-show="c.validNow" x-cloak>有效</span>
+                <span class="cert-badge miss" x-show="!c.validNow && c.voided" x-cloak>已作废</span>
+                <span class="cert-badge miss" x-show="!c.validNow && !c.voided" x-cloak>失效</span>
+              </td>
+              <td style="padding:0.45rem 0.6rem;white-space:nowrap">
+                <button type="button" class="ghost-btn"
+                        style="padding:0.2rem 0.6rem;font-size:0.8rem;background:#fff;color:#1f4d6b;border:1px solid #b7cdd0"
+                        x-show="!c.voided"
+                        @click="edit(c)">编辑</button>
+                {% if user.is_superuser %}
+                <form method="post" :action="'/water-certs/' + c.id + '/void'"
+                      style="display:inline" x-show="!c.voided"
+                      @submit="return confirm('确定作废该水质证？作废后立即失效。')">
+                  <button type="submit"
+                          style="margin-left:0.35rem;padding:0.2rem 0.6rem;font-size:0.8rem;background:#8b1e1e;color:#fff;border:1px solid #8b1e1e">作废</button>
+                </form>
+                {% else %}
+                <span style="margin-left:0.5rem;font-size:0.78rem;color:#6b7c85">仅主管可作废</span>
+                {% endif %}
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!certs.length">
+            <td colspan="7" style="padding:1rem;color:#6b7c85;text-align:center">尚无水质证记录。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="rule-foot">水质证有效期 {{ valid_days }} 个自然日；并发提交同坊同日证时数据库唯一约束拒掉第二笔，本页仍可正常打开。</p>
+</div>
+
+<script>
+  function waterPage(initialCerts, allWorkshops, preservedForm) {
+    return {
+      certs: initialCerts,
+      allWorkshops,
+      editId: null,
+      editForm: { workshop_id: '', sampled_on: '', hardness: '', passed: '1', chemist: '' },
+      edit(c) {
+        this.editId = c.id;
+        this.editForm = {
+          workshop_id: String(c.workshopId),
+          sampled_on: c.sampledOn,
+          hardness: c.hardness,
+          passed: c.passed ? '1' : '0',
+          chemist: c.chemist,
+        };
+        this.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+    };
+  }
+</script>
+{% endblock %}

@@ -64,9 +64,51 @@
       align-items: flex-end;
       gap: 1rem;
       flex-wrap: wrap;
-      margin-bottom: 1.35rem;
+      margin-bottom: 0.9rem;
       padding-bottom: 0.85rem;
       border-bottom: 1px solid rgba(216, 235, 232, 0.22);
+    }
+    .topnav {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 1.1rem;
+    }
+    .topnav a {
+      padding: 0.32rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(216, 235, 232, 0.35);
+      color: var(--foam);
+      text-decoration: none;
+      font-size: 0.88rem;
+    }
+    .topnav a:hover { background: rgba(216, 235, 232, 0.12); }
+    .topnav a.on {
+      background: linear-gradient(135deg, rgba(61, 139, 156, 0.85), rgba(31, 77, 107, 0.95));
+      border-color: rgba(216, 235, 232, 0.65);
+    }
+    .cert-badge {
+      display: inline-block;
+      margin-left: 0.4rem;
+      padding: 0.05rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      vertical-align: middle;
+      border: 1px solid transparent;
+    }
+    .cert-badge.ok {
+      color: #0e4a36;
+      background: #bfeadb;
+      border-color: #5dcea8;
+    }
+    .cert-badge.miss {
+      color: #7a2230;
+      background: #fbd9de;
+      border-color: #e59aa4;
+    }
+    .cert-badge.tag {
+      color: var(--foam);
+      background: rgba(93, 206, 168, 0.22);
+      border-color: rgba(93, 206, 168, 0.55);
     }
     .mast h1 {
       margin: 0;
@@ -298,6 +340,10 @@
         </form>
       </div>
     </header>
+    <nav class="topnav" aria-label="主导航">
+      <a href="/" class="{% if active == 'bay' %}on{% endif %}">染缸还原台</a>
+      <a href="/water-certs" class="{% if active == 'water' %}on{% endif %}">水质证</a>
+    </nav>
     {% endif %}
     {% block content %}{% endblock %}
   </div>

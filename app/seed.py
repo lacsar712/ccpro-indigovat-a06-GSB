@@ -1,12 +1,12 @@
 import hashlib
 import hmac
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models import DipLot, User, Vat, Workshop
+from app.models import DipLot, User, Vat, WaterCert, Workshop
 
 _PWD_SALT = os.environ.get("PWD_SALT", "indigovat-dev-salt").encode("utf-8")
 
@@ -69,7 +69,7 @@ def ensure_seed_data(db: Session) -> None:
         code="V-11",
         dyeType="土靛",
         volumeL=Decimal("900.00"),
-        status=Vat.STATUS_REDUCING,
+        status=Vat.STATUS_IDLE,
     )
     v4 = Vat(
         workshop_id=w2.id,
@@ -139,5 +139,27 @@ def ensure_seed_data(db: Session) -> None:
                 (10, "38.50", "-530.00"),
             ],
         )
+    )
+
+    # 水质证：蓝靛湾一号坊有 14 日内合格证；清水江二号坊仅有一张已过期证，
+    # 且保留闲置缸 V-11 —— 该坊闲置缸进还原中应被中文拒绝。
+    today = date.today()
+    db.add_all(
+        [
+            WaterCert(
+                workshop_id=w1.id,
+                sampled_on=today - timedelta(days=3),
+                hardness=Decimal("168.00"),
+                passed=True,
+                chemist="杨化验",
+            ),
+            WaterCert(
+                workshop_id=w2.id,
+                sampled_on=today - timedelta(days=21),
+                hardness=Decimal("205.00"),
+                passed=True,
+                chemist="杨化验",
+            ),
+        ]
     )
     db.commit()

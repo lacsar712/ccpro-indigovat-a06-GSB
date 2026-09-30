@@ -13,8 +13,14 @@
         class="chip"
         :class="{ on: filterWs === w.id }"
         @click="setFilter(w.id)"
-        x-text="w.name"
-      ></button>
+      >
+        <span x-text="w.name"></span>
+        <span
+          class="cert-badge"
+          :class="w.hasValidCert ? 'tag' : 'miss'"
+          x-text="w.hasValidCert ? '有效' : '缺证'"
+        ></span>
+      </button>
     </template>
   </div>
 
@@ -99,6 +105,14 @@
           </div>
           <div>
             <h3 style="font-size:1rem;margin:0 0 0.65rem;color:#1f4d6b">改缸状态</h3>
+            <p class="hint" style="margin:0 0 0.5rem">
+              所属工坊水质证：
+              <span class="cert-badge"
+                    :class="wsOf(selected()).hasValidCert ? 'ok' : 'miss'"
+                    x-text="wsOf(selected()).hasValidCert
+                      ? '有效（取样 ' + wsOf(selected()).validCertSampledOn + '）'
+                      : '缺证：闲置缸不可进还原中'"></span>
+            </p>
             <form method="post" :action="'/bay/vats/' + selected().id + '/status'">
               <input type="hidden" name="workshop" :value="filterWs || ''">
               <label>目标状态
@@ -130,7 +144,7 @@
     </template>
   </div>
 
-  <p class="rule-foot">工坊只作缸位筛选片；浸染与状态均在缸位展开区内完成，无独立表页。</p>
+  <p class="rule-foot">工坊只作缸位筛选片；浸染与状态均在缸位展开区内完成，无独立表页。闲置缸进还原中须所属工坊持有 14 日内合格水质证（结论与水质证专页同源）。</p>
 </div>
 
 <script>
@@ -176,6 +190,10 @@
       },
       selected() {
         return this.vats.find(v => v.id === this.selectedId) || null;
+      },
+      wsOf(vat) {
+        return this.workshops.find(w => w.id === (vat && vat.workshopId))
+          || { hasValidCert: false, validCertSampledOn: null };
       },
       nowLocal() {
         const d = new Date();

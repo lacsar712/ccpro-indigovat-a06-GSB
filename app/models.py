@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Numeric,
@@ -34,6 +35,7 @@ class Workshop(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
 
     vats: Mapped[list["Vat"]] = relationship(back_populates="workshop")
+    water_certs: Mapped[list["WaterCert"]] = relationship(back_populates="workshop")
 
 
 class Vat(Base):
@@ -72,3 +74,35 @@ class DipLot(Base):
     redoxMv: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2), nullable=True)
 
     vat: Mapped["Vat"] = relationship(back_populates="lots")
+
+
+class WaterCert(Base):
+    """水质化验合格证：同坊同日至多一张；硬度 0–350。"""
+
+    __tablename__ = "water_certs"
+    __table_args__ = (
+        UniqueConstraint(
+            "workshop_id", "sampled_on", name="uniq_cert_workshop_sampled_on"
+        ),
+    )
+
+    VALID_DAYS = 14
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workshop_id: Mapped[int] = mapped_column(
+        ForeignKey("workshops.id", ondelete="CASCADE")
+    )
+    sampled_on: Mapped[date] = mapped_column(Date, index=True)
+    hardness: Mapped[Decimal] = mapped_column(Numeric(6, 2))
+    passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    chemist: Mapped[str] = mapped_column(String(80))
+    voided: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    workshop: Mapped["Workshop"] = relationship(back_populates="water_certs")
+
+    def is_valid_on(self, today: date) -> bool:
+        """合格、未作废且取样日在最近 14 个自然日内（含当日）。"""
+        if self.voided or not self.passed:
+            return False
+        delta = (today - self.sampled_on).days
+        return 0 <= delta <= self.VALID_DAYS

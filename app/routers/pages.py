@@ -13,6 +13,7 @@ from app.auth import get_current_user
 from app.db import get_db
 from app.models import DipLot, Vat, Workshop
 from app.services.vat_rules import VatRuleError, validate_vat_status_change
+from app.services.water_certs import latest_valid_by_workshop, workshop_has_valid_cert
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -102,10 +103,25 @@ def _bay_context(
         .order_by(Vat.code)
         .all()
     )
+    # 水质证结论唯一来源：状态门、chip 标记、专页「最新有效」共用同一函数
+    valid_certs = latest_valid_by_workshop(db)
     return {
         "request": request,
         "user": user,
-        "workshops": [{"id": w.id, "name": w.name, "region": w.region} for w in workshops],
+        "workshops": [
+            {
+                "id": w.id,
+                "name": w.name,
+                "region": w.region,
+                "hasValidCert": w.id in valid_certs,
+                "validCertSampledOn": (
+                    valid_certs[w.id].sampled_on.isoformat()
+                    if w.id in valid_certs
+                    else None
+                ),
+            }
+            for w in workshops
+        ],
         "vats": [_vat_payload(v) for v in vats],
         "filter_workshop": workshop_id,
         "selected_vat": selected_vat,
@@ -150,6 +166,14 @@ async def bay_vat_status(
         return RedirectResponse("/", status_code=303)
     error = None
     try:
+        # 闲置改还原中前按缸所属工坊查有效证；没有则中文拒绝。
+        # 结论与 chip、水质证专页同源于 latest_valid_by_workshop。
+        if item.status == Vat.STATUS_IDLE and status == Vat.STATUS_REDUCING:
+            if not workshop_has_valid_cert(db, item.workshop_id):
+                raise VatRuleError(
+                    f"该缸所属工坊「{item.workshop.name if item.workshop else ''}」"
+                    "当前没有 14 日内的合格水质证，闲置缸不能进入还原中。"
+                )
         latest = item.latest_lot()
         validate_vat_status_change(item, status, latest)
         item.status = status
