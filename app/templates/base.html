@@ -88,6 +88,105 @@
       color: var(--foam);
       font-size: 0.9rem;
     }
+    .topnav {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .topnav a {
+      color: rgba(216, 235, 232, 0.78);
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 0.32rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .topnav a:hover { border-color: rgba(216, 235, 232, 0.4); color: var(--foam); }
+    .topnav a.on {
+      background: linear-gradient(135deg, rgba(61, 139, 156, 0.85), rgba(31, 77, 107, 0.95));
+      border-color: rgba(216, 235, 232, 0.65);
+      color: var(--foam);
+    }
+    .chip-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .cert-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 0.12rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .cert-badge.ok {
+      background: rgba(26, 122, 92, 0.22);
+      border-color: rgba(93, 206, 168, 0.55);
+      color: #8fe3c4;
+    }
+    .cert-badge.miss {
+      background: rgba(139, 30, 30, 0.28);
+      border-color: rgba(240, 180, 180, 0.5);
+      color: #f3b8b8;
+    }
+    .panel .cert-badge.ok { color: #14604a; background: rgba(26, 122, 92, 0.14); }
+    .panel .cert-badge.miss { color: #8b1e1e; background: rgba(139, 30, 30, 0.1); }
+    .latest-valid {
+      display: inline-block;
+      margin-left: 0.3rem;
+      font-size: 0.72rem;
+      padding: 0.12rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(31, 77, 107, 0.12);
+      border: 1px solid rgba(31, 77, 107, 0.4);
+      color: #1f4d6b;
+      white-space: nowrap;
+    }
+    .ws-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1.1rem;
+    }
+    .ws-card {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.5rem 0.8rem;
+      border-radius: 12px;
+      border: 1px solid rgba(216, 235, 232, 0.3);
+      background: rgba(11, 28, 44, 0.35);
+      color: var(--foam);
+      font-size: 0.88rem;
+    }
+    .ws-card .ws-region { opacity: 0.65; font-size: 0.78rem; margin-left: 0.3rem; }
+    .cert-table { width: 100%; font-size: 0.88rem; }
+    .cert-table th, .cert-table td { padding: 0.45rem 0.5rem; }
+    .cert-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 0.7rem 1rem;
+      align-items: end;
+    }
+    .cert-form label { margin: 0; }
+    .cert-form .form-actions { display: flex; gap: 0.5rem; }
+    button.mini {
+      width: auto;
+      margin: 0;
+      padding: 0.18rem 0.6rem;
+      font-size: 0.78rem;
+      background: var(--indigo-mid);
+      border-color: var(--indigo-mid);
+    }
+    button.mini.danger { background: #8b1e1e; border-color: #8b1e1e; }
+    button.ghost {
+      width: auto;
+      margin: 0;
+      background: transparent;
+      border: 1px solid #b7cdd0;
+      color: #2a4554;
+    }
     .user-pill button {
       width: auto;
       margin: 0;
@@ -291,6 +390,10 @@
         <h1>染缸还原台</h1>
         <p class="sub">IndigoVat · 按缸位盯氧化还原，点开记浸染与改状态</p>
       </div>
+      <nav class="topnav" aria-label="主导航">
+        <a href="/" class="{{ 'on' if active == 'bay' else '' }}">还原台</a>
+        <a href="/water-certs" class="{{ 'on' if active == 'water' else '' }}">水质证</a>
+      </nav>
       <div class="user-pill">
         <span>{{ user.username }}</span>
         <form method="post" action="/logout">

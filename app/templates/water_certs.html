@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}水质证{% endblock %}
+{% block content %}
+<div x-data="waterCerts()">
+  {% if error %}
+  <div class="error-box">{{ error }}</div>
+  {% endif %}
+
+  <div class="ws-strip" aria-label="各工坊水质证现状">
+    {% for w in workshops %}
+    <div class="ws-card">
+      <span>{{ w.name }}<span class="ws-region">{{ w.region }}</span></span>
+      {% if w.has_valid %}
+      <span class="cert-badge ok">水质证有效</span>
+      {% else %}
+      <span class="cert-badge miss">水质证缺失</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="panel" style="margin-bottom:1.1rem">
+    <h2 x-text="form.id ? '更新水质证' : '登记水质证'">登记水质证</h2>
+    <p class="hint">
+      同坊同日仅可登记一张；硬度 0–350；合格且取样日在最近 {{ valid_window_days }} 个自然日内且未作废方为有效。
+      无证工坊的闲置缸不能改为还原中。
+    </p>
+    <form method="post" action="/water-certs/save" class="cert-form">
+      <input type="hidden" name="cert_id" :value="form.id">
+      <label>工坊
+        <select name="workshop_id" x-model="form.workshop_id" required>
+          <option value="" disabled>请选择工坊</option>
+          {% for w in workshops %}
+          <option value="{{ w.id }}">{{ w.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>取样日
+        <input type="date" name="sampled_on" x-model="form.sampled_on" required>
+      </label>
+      <label>硬度值（0–350）
+        <input type="number" name="hardness" min="0" max="350" step="0.01" x-model="form.hardness" required placeholder="例如 126.5">
+      </label>
+      <label>是否合格
+        <select name="qualified" x-model="form.qualified">
+          <option value="1">合格</option>
+          <option value="0">不合格</option>
+        </select>
+      </label>
+      <label>化验人
+        <input type="text" name="tester" maxlength="80" x-model="form.tester" required placeholder="化验人姓名">
+      </label>
+      <div class="form-actions">
+        <button type="submit" x-text="form.id ? '保存更新' : '登记入库'">登记入库</button>
+        <button type="button" class="ghost" x-show="form.id" x-cloak @click="resetForm()">取消编辑</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>水质证台账</h2>
+    <p class="hint">「最新有效」标记与还原台工坊 chip、闲置改还原中校验同源；作废仅主管可操作，作废后立即失效。</p>
+    <table class="cert-table">
+      <thead>
+        <tr>
+          <th>工坊</th>
+          <th>取样日</th>
+          <th>硬度</th>
+          <th>结论</th>
+          <th>化验人</th>
+          <th>状态</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in certs %}
+        <tr>
+          <td>{{ c.workshop_name }}</td>
+          <td>{{ c.sampled_on }}</td>
+          <td>{{ '%.2f' | format(c.hardness) }}</td>
+          <td>{{ '合格' if c.qualified else '不合格' }}</td>
+          <td>{{ c.tester }}</td>
+          <td>
+            <span class="cert-badge {{ 'ok' if c.status_label == '有效' else 'miss' }}">{{ c.status_label }}</span>
+            {% if c.is_latest_valid %}<span class="latest-valid">最新有效</span>{% endif %}
+          </td>
+          <td>
+            {% if not c.voided %}
+            <button type="button" class="mini" @click="editCert({{ c.id }})">编辑</button>
+            {% endif %}
+            {% if user.is_superuser and not c.voided %}
+            <form method="post" action="/water-certs/{{ c.id }}/void" style="display:inline"
+                  onsubmit="return confirm('确定作废该水质证？作废后立即失效。');">
+              <button type="submit" class="mini danger">作废</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:#6b7c85">尚无水质证记录</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function waterCerts() {
+    const certs = {{ certs_json | tojson }};
+    const blank = { id: '', workshop_id: '', sampled_on: '{{ today }}', hardness: '', qualified: '1', tester: '' };
+    return {
+      form: { ...blank },
+      editCert(id) {
+        const c = certs.find(x => x.id === id);
+        if (!c) return;
+        this.form = {
+          id: String(c.id),
+          workshop_id: String(c.workshop_id),
+          sampled_on: c.sampled_on,
+          hardness: String(c.hardness),
+          qualified: c.qualified ? '1' : '0',
+          tester: c.tester,
+        };
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+      resetForm() {
+        this.form = { ...blank };
+      },
+    };
+  }
+</script>
+{% endblock %}

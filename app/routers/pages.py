@@ -1,39 +1,25 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
-import json
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from jinja2.utils import markupsafe
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import get_current_user
 from app.db import get_db
 from app.models import DipLot, Vat, Workshop
 from app.services.vat_rules import VatRuleError, validate_vat_status_change
+from app.services.water_rules import latest_valid_cert
+from app.templating import render
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-
-
-def _tojson(value):
-    return markupsafe.Markup(json.dumps(value, ensure_ascii=False))
-
-
-templates.env.filters["tojson"] = _tojson
 
 STATUS_LABELS = {
     Vat.STATUS_IDLE: "闲置",
     Vat.STATUS_REDUCING: "还原中",
     Vat.STATUS_READY: "可染色",
 }
-
-
-def render(request: Request, name: str, context: dict, status_code: int = 200):
-    ctx = {k: v for k, v in context.items() if k != "request"}
-    return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
 
 def _need_login(request: Request, db: Session):
@@ -102,10 +88,21 @@ def _bay_context(
         .order_by(Vat.code)
         .all()
     )
+    # chip 旁的水质证有效/缺失与改状态校验、专页标记同源（latest_valid_cert）
+    today = date.today()
+    valid_cert_ws = {w.id: latest_valid_cert(db, w.id, today) is not None for w in workshops}
     return {
         "request": request,
         "user": user,
-        "workshops": [{"id": w.id, "name": w.name, "region": w.region} for w in workshops],
+        "workshops": [
+            {
+                "id": w.id,
+                "name": w.name,
+                "region": w.region,
+                "hasValidCert": valid_cert_ws[w.id],
+            }
+            for w in workshops
+        ],
         "vats": [_vat_payload(v) for v in vats],
         "filter_workshop": workshop_id,
         "selected_vat": selected_vat,
@@ -151,7 +148,7 @@ async def bay_vat_status(
     error = None
     try:
         latest = item.latest_lot()
-        validate_vat_status_change(item, status, latest)
+        validate_vat_status_change(item, status, latest, db)
         item.status = status
         db.commit()
         return RedirectResponse(f"/?vat={pk}" + (f"&workshop={ws}" if ws else ""), status_code=303)

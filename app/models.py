@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Numeric,
@@ -34,6 +35,7 @@ class Workshop(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
 
     vats: Mapped[list["Vat"]] = relationship(back_populates="workshop")
+    water_certs: Mapped[list["WaterCert"]] = relationship(back_populates="workshop")
 
 
 class Vat(Base):
@@ -72,3 +74,22 @@ class DipLot(Base):
     redoxMv: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2), nullable=True)
 
     vat: Mapped["Vat"] = relationship(back_populates="lots")
+
+
+class WaterCert(Base):
+    """水质证：同坊同日仅一张（数据库唯一约束兜底并发）。"""
+
+    __tablename__ = "water_certs"
+    __table_args__ = (
+        UniqueConstraint("workshop_id", "sampled_on", name="uniq_water_cert_workshop_day"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workshop_id: Mapped[int] = mapped_column(ForeignKey("workshops.id", ondelete="CASCADE"))
+    sampled_on: Mapped[date] = mapped_column(Date)
+    hardness: Mapped[Decimal] = mapped_column(Numeric(6, 2))
+    qualified: Mapped[bool] = mapped_column(Boolean, default=True)
+    tester: Mapped[str] = mapped_column(String(80))
+    voided: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    workshop: Mapped["Workshop"] = relationship(back_populates="water_certs")

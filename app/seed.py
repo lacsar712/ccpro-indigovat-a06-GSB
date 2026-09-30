@@ -1,12 +1,12 @@
 import hashlib
 import hmac
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models import DipLot, User, Vat, Workshop
+from app.models import DipLot, User, Vat, WaterCert, Workshop
 
 _PWD_SALT = os.environ.get("PWD_SALT", "indigovat-dev-salt").encode("utf-8")
 
@@ -23,7 +23,11 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def ensure_seed_data(db: Session) -> None:
-    """幂等种子：账号 + 蓝靛湾/清水江样例缸位与电位序列。"""
+    """幂等种子：账号 + 蓝靛湾/清水江样例缸位与电位序列 + 水质证样例。
+
+    蓝靛湾一号坊持有效水质证；清水江二号坊刻意缺证并保留闲置缸 V-13，
+    用于演示「无有效证则闲置缸不能改还原中」。
+    """
     if not db.query(User).filter_by(username="admin").first():
         db.add(
             User(
@@ -78,7 +82,36 @@ def ensure_seed_data(db: Session) -> None:
         volumeL=Decimal("750.00"),
         status=Vat.STATUS_READY,
     )
-    db.add_all([v1, v2, v3, v4])
+    v5 = Vat(
+        workshop_id=w2.id,
+        code="V-13",
+        dyeType="土靛",
+        volumeL=Decimal("500.00"),
+        status=Vat.STATUS_IDLE,
+    )
+    db.add_all([v1, v2, v3, v4, v5])
+    db.flush()
+
+    # 水质证：一号坊一效一过期；二号坊刻意缺证
+    today = date.today()
+    db.add_all(
+        [
+            WaterCert(
+                workshop_id=w1.id,
+                sampled_on=today - timedelta(days=2),
+                hardness=Decimal("126.50"),
+                qualified=True,
+                tester="阿岩",
+            ),
+            WaterCert(
+                workshop_id=w1.id,
+                sampled_on=today - timedelta(days=30),
+                hardness=Decimal("98.00"),
+                qualified=True,
+                tester="阿岩",
+            ),
+        ]
+    )
     db.flush()
 
     now = datetime.now(timezone.utc)

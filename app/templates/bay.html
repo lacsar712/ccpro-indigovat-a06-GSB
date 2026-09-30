@@ -8,13 +8,20 @@
   <div class="chips" role="toolbar" aria-label="工坊筛选">
     <button type="button" class="chip" :class="{ on: filterWs === null }" @click="setFilter(null)">全部缸位</button>
     <template x-for="w in workshops" :key="w.id">
-      <button
-        type="button"
-        class="chip"
-        :class="{ on: filterWs === w.id }"
-        @click="setFilter(w.id)"
-        x-text="w.name"
-      ></button>
+      <span class="chip-wrap">
+        <button
+          type="button"
+          class="chip"
+          :class="{ on: filterWs === w.id }"
+          @click="setFilter(w.id)"
+          x-text="w.name"
+        ></button>
+        <span
+          class="cert-badge"
+          :class="w.hasValidCert ? 'ok' : 'miss'"
+          x-text="w.hasValidCert ? '水质证有效' : '水质证缺失'"
+        ></span>
+      </span>
     </template>
   </div>
 
@@ -78,6 +85,7 @@
         </h2>
         <p class="hint">当前 <strong x-text="selected().statusLabel"></strong>
           · 最近浸染 <span x-text="selected().lastDippedAt || '—'"></span>
+          · 闲置改还原中须本坊持有效水质证
           · 设为可染色须最新批次电位 ≤ -500 mV</p>
 
         <div class="panel-grid">
